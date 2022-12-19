@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# This script will create a tar archive of the /etc/pve directory, which contains the Proxmox configuration files,
+# and copy the Proxmox database (located at /var/lib/pve-cluster/config.db) to the specified backup directory.
+# The backup files will be named with the current date and time, so you can easily identify and distinguish them.
+# You can then schedule this script to run regularly using a cron job to ensure that you always have a recent backup
+# of your Proxmox configuration.
+
+# set variables for the backup location and current date/time
+backup_dir="/path/to/backup/directory"
+date=$(date +%Y-%m-%d-%H%M%S)
+
+# create the backup directory if it doesn't already exist
+if [ ! -d "$backup_dir" ]; then
+  mkdir -p "$backup_dir"
+fi
+
+# create a tar archive of the Proxmox configuration directory
+tar -czf "$backup_dir/proxmox-config-$date.tar.gz" /etc/pve
+
+# copy the Proxmox database to the backup directory
+cp /var/lib/pve-cluster/config.db "$backup_dir/proxmox-config-$date.db"
+
+# print a message to confirm that the backup has been completed
+echo "Proxmox configuration backup complete"
