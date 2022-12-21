@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# ask user for the root directory to scan
+echo "Enter the root directory to scan: "
+read root_dir
+
+# search for shell scripts (web shells) in the specified directory and subdirectories
+echo "Searching for shell scripts (web shells)..."
+shell_scripts=$(find "$root_dir" -name "*.php" -exec grep -l "system\|shell_exec\|exec\|passthru\|phpinfo\|base64_decode\|eval" {} \;)
+
+# search for RCE code in the specified directory and subdirectories
+echo "Searching for RCE code..."
+rce_code=$(find "$root_dir" -name "*.php" -exec grep -l '\$_GET\[.\*\]\|\$_POST\[.\*\]\|\$_COOKIE\[.\*\]\|\$_REQUEST\[.\*\]' {} \;)
+
+# if any infected files were found, inform the user
+if [ -n "$shell_scripts" ] || [ -n "$rce_code" ]; then
+  echo "The following files were infected:"
+  if [ -n "$shell_scripts" ]; then
+    echo "$shell_scripts"
+  fi
+  if [ -n "$rce_code" ]; then
+    echo "$rce_code"
+  fi
+  echo "To sanitize these files, you can remove the malicious code or replace the infected files with clean copies."
+else
+  echo "No infected files were found."
+fi
