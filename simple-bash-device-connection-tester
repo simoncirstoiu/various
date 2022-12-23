@@ -1,0 +1,87 @@
+#!/bin/bash
+
+#Author Simon Cirstoiu
+
+# Set variables for the number of ping counts and the time to wait between pings
+pcount=5
+wait=1
+maxwait=60
+
+# Set a variable for the network interface to use
+iface="eth0"
+
+# Set a variable for the maximum time to wait between SMS
+smswait=3600
+
+# Set a variable for the devices to be checked
+declare -A devices
+devices[router]="192.168.1.1"
+devices[camera-1]="192.168.1.2"
+devices[camera-2]="192.168.1.3"
+devices[device-1]="192.168.1.4"
+devices[internet]="8.8.8.8"
+
+# Iterate over the devices
+for device_name in "${!devices[@]}"; do
+  device=${devices[$device_name]}
+  # Set the initial ping command
+  cmd="ping -I $iface -A -f -c $pcount -W $wait $device"
+  
+  # Set a variable for the number of received responses
+  received=$($cmd | grep received | awk '{print $4}')
+  
+  # Check if the device is connected
+  if [[ $received -ge 1 ]]; then
+    echo "OK - $device_name is connected"
+  else
+    # Set a variable for the path to the integrity file
+    file="/relay/data/integrity/$(echo "$device_name")"
+
+    # Check if the integrity file exists
+    if [[ ! -f $file ]]; then
+      # Create the integrity file
+      touch "$file"
+    else
+      # Set a variable for the time waited so far
+      waited=0
+
+      # Keep retesting the device until it responds or the maximum wait time is reached
+      while [[ $received -lt 1 && $waited -lt $maxwait ]]; do
+        # Update the total time waited
+        waited=$(($waited + $wait))
+        # Set the new ping command with the updated wait time
+        cmd="ping -I $iface -A -f -c $pcount -W $wait $device"
+        # Check the number of received responses again
+        received=$($cmd | grep received | awk '{print $4}')
+      done
+
+      # Check if the device is still not connected
+      if [[ $received -lt 1 ]]; then
+        # Set a variable for the current time (in minutes)
+        now=$(date +%s)/60
+
+        # Set a variable for the time the file was last modified (in minutes)
+        modified=$(stat -c %Y "$file")/60
+
+        # Set a variable for the time difference (in minutes)
+        diff=$(($now-$modified))
+
+        # Check if the time difference is greater than the maximum wait time
+        if [[ $diff -gt $smswait ]]; then
+          # Send an SMS message (I use gammu, but you may use some sort of sms sender)
+          /bin/bash /relay/data/scripts/sms "$device_name is disconnected"
+
+          # Update the integrity file
+          touch "$file"
+        fi
+      fi
+    fi
+
+    # Check if the device is now connected
+    if [[ $received -ge 1 ]]; then
+      echo "OK - $device_name is connected"
+    else
+      echo "NOT OK - $device_name is disconnected"
+    fi
+  fi
+done
